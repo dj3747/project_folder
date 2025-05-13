@@ -1,7 +1,7 @@
 from src.api import HeadHunterAPI
-from src.vacancy import Vacancy
 from src.fileworker import JSONStorage
 from src.utils import filter_vacancies, get_top_vacancies, print_vacancies
+from src.vacancy import Vacancy
 
 
 def main():
@@ -25,7 +25,7 @@ def main():
             title=vac_data["name"],
             url=vac_data["alternate_url"],
             salary=salary,
-            description=vac_data["snippet"].get("responsibility", "Описание не указано")
+            description=vac_data["snippet"].get("responsibility", "Описание не указано"),
         )
         storage.add_vacancy(vacancy)
 

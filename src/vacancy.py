@@ -9,12 +9,7 @@ class Vacancy:
 
     def to_dict(self) -> dict:
         """Преобразует объект вакансии в словарь."""
-        return {
-            "title": self.title,
-            "url": self.url,
-            "salary": self.salary,
-            "description": self.description
-        }
+        return {"title": self.title, "url": self.url, "salary": self.salary, "description": self.description}
 
     def __lt__(self, other):
         return self.get_salary_value() < other.get_salary_value()
