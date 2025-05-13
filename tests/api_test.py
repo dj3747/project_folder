@@ -1,5 +1,7 @@
-import pytest
 from unittest.mock import Mock
+
+import pytest
+
 from src.api import HeadHunterAPI
 
 
@@ -20,7 +22,7 @@ def test_get_vacancies_success(api, mocker):
                 "name": "Python Developer",
                 "alternate_url": "https://hh.ru/vacancy/123456",
                 "salary": {"from": 100000, "to": 150000, "currency": "RUB"},
-                "snippet": {"responsibility": "Разработка на Python"}
+                "snippet": {"responsibility": "Разработка на Python"},
             }
         ]
     }
