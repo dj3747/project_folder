@@ -1,84 +1,59 @@
 import json
-import os
 from abc import ABC, abstractmethod
+from src.vacancy import Vacancy
 
 
-class FileWorker(ABC):
-    """Абстрактный класс для работы с файлами"""
+class VacancyStorage(ABC):
+    """Абстрактный класс для работы с файлами."""
 
     @abstractmethod
-    def add_vacancy(self, vacancy):
-        """Добавляет вакансию в файл"""
+    def add_vacancy(self, vacancy: Vacancy):
         pass
 
     @abstractmethod
-    def get_vacancies(self, **filters):
-        """Получает вакансии из файла по указанным критериям"""
+    def get_vacancies(self, **filters) -> list:
         pass
 
     @abstractmethod
-    def delete_vacancy(self, vacancy_id):
-        """Удаляет вакансию из файла"""
+    def delete_vacancy(self, vacancy: Vacancy):
         pass
 
 
-class JsonVacancyStorage(FileWorker):
-    """Класс для работы с JSON-файлом"""
+class JSONStorage(VacancyStorage):
+    """Класс для работы с JSON-файлом."""
 
-    def __init__(self, filename="vacancies.json"):
-        self.__filename = os.path.join(os.getcwd(), filename)  # Приватный атрибут имени файла
+    def __init__(self, filename: str = "vacancies.json"):
+        self._filename = filename  # Приватный атрибут
 
-    def _read_file(self):
-        """Читает данные из JSON-файла"""
+    def _load_data(self) -> list:
         try:
-            with open(self.__filename, "r", encoding="utf-8") as file:
+            with open(self._filename, "r", encoding="utf-8") as file:
                 return json.load(file)
-        except FileNotFoundError:
-            return []  # Если файл не найден, возвращаем пустой список
+        except (FileNotFoundError, json.JSONDecodeError):
+            return []
 
-    def _write_file(self, data):
-        """Записываем данные в JSON-файл"""
-        try:
-            with open(self.__filename, "w", encoding="utf-8") as file:
-                json.dump(data, file, ensure_ascii=False, indent=4)
-            print(f"Данные успешно записаны в файл {self.__filename}.")
-        except Exception as e:
-            print(f"Ошибка записи в файл: {e}")
+    def _save_data(self, data: list):
+        with open(self._filename, "w", encoding="utf-8") as file:
+            json.dump(data, file, ensure_ascii=False, indent=4)
 
-    def add_vacancy(self, vacancy):
-        vacancies = self._read_file()
+    def add_vacancy(self, vacancy: Vacancy):
+        data = self._load_data()
+        vacancy_dict = vacancy.to_dict()
 
-        if not any(existing_vacancy.get("Вакансия") == vacancy.get("title") for existing_vacancy in vacancies):
-            formatted_vacancy = {
-                "Вакансия": vacancy.get("title"),
-                "Ссылка": vacancy.get("link"),
-                "Зарплата": vacancy.get("salary"),
-                "Описание": vacancy.get("description"),
-            }
-            vacancies.append(formatted_vacancy)
-            print(f"Данные для записи в файл: {vacancies}")  # Отладка
-            self._write_file(vacancies)  # Запись данных
-            print(f"\nВакансия добавлена в файл:\n{formatted_vacancy}")
-        else:
-            print(f"Вакансия '{vacancy.get('title')}' уже существует в файле.")
+        if not any(vac["url"] == vacancy_dict["url"] for vac in data):
+            data.append(vacancy_dict)
+            self._save_data(data)
 
-    def get_vacancies(self, **filters):
-        """
-        Возвращает список вакансий из файла по указанным критериям.
-        Например, filter может быть: {"salary_from": 100000, "keywords": "Python"}.
-        """
-        vacancies = self._read_file()
+    def get_vacancies(self, **filters) -> list:
+        data = self._load_data()
+        vacancies = [Vacancy(**vac) for vac in data]
+
         for key, value in filters.items():
-            vacancies = [vacancy for vacancy in vacancies if vacancy.get(key) == value]
+            vacancies = [vac for vac in vacancies if value.lower() in getattr(vac, key).lower()]
+
         return vacancies
 
-    def delete_vacancy(self, vacancy_id):
-        """Удаляет вакансию по указанному ID"""
-        vacancies = self._read_file()
-        updated_vacancies = [vacancy for vacancy in vacancies if vacancy.get("id") != vacancy_id]
-
-        if len(vacancies) != len(updated_vacancies):
-            self._write_file(updated_vacancies)
-            print(f"Вакансия с ID {vacancy_id} удалена.")
-        else:
-            print(f"Вакансия с ID {vacancy_id} не найдена.")
+    def delete_vacancy(self, vacancy: Vacancy):
+        data = self._load_data()
+        data = [vac for vac in data if vac["url"] != vacancy.url]
+        self._save_data(data)

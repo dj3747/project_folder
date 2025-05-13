@@ -1,60 +1,55 @@
-from abc import ABC, abstractmethod
-
 import requests
+from abc import ABC, abstractmethod
 
 
 class JobAPI(ABC):
-    """Абстрактный метод для взаимодействия с API сервисом вакансий"""
-
-    def __init__(self, base_url):
-        self._base_url = base_url  # Приватный атрибут для хранения базового URL
+    """Абстрактный класс для работы с API платформ с вакансиями."""
 
     @abstractmethod
-    def _connect(self):
-        """Абстрактный метод подключения к API"""
-        pass
-
-    @abstractmethod
-    def get_vacancies(self, keyword, page=0, per_page=100):
-        """Абстрактный метод для получения списка вакансий"""
+    def get_vacancies(self, query: str, per_page: int = 20) -> list:
         pass
 
 
-class HhRuAPI(JobAPI):
-    """Класс для работы с API платформы hh.ru"""
+class HeadHunterAPI(JobAPI):
+    """Класс для работы с API hh.ru."""
 
     def __init__(self):
-        super().__init__("https://api.hh.ru/vacancies")  # Установка базового URL
-        self._headers = {"User-Agent": "HH-User-Agent"}  # Заголовки для запросов
+        self._base_url = "https://api.hh.ru/vacancies"  # Приватный атрибут
+        self._russia_id = "113"  # ID России в API hh.ru (теперь передается корректно)
 
-    def _connect(self):
-        """Метод подключения к API hh.ru"""
-        try:
-            response = requests.get(self._base_url, headers=self._headers)
-            response.raise_for_status()  # Проверка успешности запроса
-            print("Подключение к API hh.ru успешно!")
-        except requests.exceptions.RequestException as e:
-            raise ConnectionError(f"Ошибка подключения к API hh.ru: {e}")
+    def get_vacancies(self, query: str, per_page: int = 20) -> list:
+        """Получение вакансий с hh.ru."""
+        params = {"text": query, "per_page": per_page, "area": self._russia_id}
+        response = requests.get(self._base_url, params=params)
 
-    def get_vacancies(self, keyword, page=0, per_page=100):
-        """Метод для получения списка вакансий
-        :param keyword: Ключевое слово для поиска вакансий
-        :param page: Номер страницы для получения данных
-        :param per_page: Количество вакансий на странице
-        :return: Список вакансий (словарей)
-        """
-        self._connect()  # Проверка подключения перед запросом данных
-        params = {
-            "text": keyword,  # Поисковый запрос
-            "page": page,  # Номер страницы
-            "per_page": per_page,  # Количество вакансий на странице
-            "area": 113,  # ограничение по России
-        }
-        try:
-            response = requests.get(self._base_url, headers=self._headers, params=params)
-            response.raise_for_status()  # Проверка успешности запроса
-            data = response.json()
-            print(f"Получено {len(data.get('items', []))} вакансий на странице {page}.")
-            return data.get("items", [])
-        except requests.exceptions.RequestException as e:
-            raise ValueError(f"Ошибка при получении данных: {e}")
+        if response.status_code != 200:
+            raise Exception(f"Ошибка запроса к API hh.ru: {response.status_code}")
+
+        # Получаем данные с API
+        data = response.json()
+
+        # Получаем список вакансий
+        vacancies_data = data.get("items", [])
+
+        # Обрабатываем зарплату для каждой вакансии
+        for vacancy in vacancies_data:
+            salary = vacancy.get("salary")
+            vacancy["salary"] = self.format_salary(salary) if salary else "Зарплата не указана"
+
+        return vacancies_data
+
+    @staticmethod
+    def format_salary(salary: dict) -> str:
+        """Форматирование зарплаты в читаемый вид."""
+        if salary:
+            from_salary = salary.get("from")
+            to_salary = salary.get("to")
+            currency = salary.get("currency", "не указана")
+
+            if from_salary and to_salary:
+                return f"{from_salary} - {to_salary} {currency}"
+            if from_salary:
+                return f"от {from_salary} {currency}"
+            if to_salary:
+                return f"до {to_salary} {currency}"
+        return "Зарплата не указана"
